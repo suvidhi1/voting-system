@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CR Election</title>
+
+    <!-- Bootstrap -->
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- AES Encryption Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+
+    <style>
+      /* Added styles for demo panel */
+      .demo-panel {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-top: 30px;
+        border: 1px solid #eee;
+      }
+      .encrypted-data {
+        font-family: monospace;
+        background: #2c3e50;
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+        word-break: break-word;
+        margin: 10px 0;
+      }
+
+      /* Smooth fade-in for main content */
+      #content {
+        opacity: 0;
+        transition: opacity 0.6s ease-in-out;
+      }
+
+      #content.show {
+        opacity: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container" style="max-width: 80%;">
+      <div class="row">
+        <div class="col-lg-12">
+          <h1 id="mainTitle" class="text-center">CR Election</h1>
+          <hr/>
+          <br/>
+          <div id="loader">
+            <p class="text-center">Loading...</p>
+          </div>
+          <div id="content" style="display: none;">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th scope="col">#</th>
+                  <th scope="col">Name</th>
+                  <th scope="col">Votes</th>
+                </tr>
+              </thead>
+              <tbody id="candidatesResults">
+              </tbody>
+            </table>
+            <hr/>
+            <form onSubmit="App.castVote(); return false;">
+              <div class="form-group">
+                <label for="candidatesSelect">Select Candidate</label>
+                <select class="form-control" id="candidatesSelect">
+                </select>
+              </div>
+              <button type="submit" class="btn btn-primary">Vote</button>
+              <hr />
+            </form>
+            <p id="accountAddress" class="text-center"></p>
+
+            <!-- Encryption Demo Panel -->
+            <div class="demo-panel">
+              <h4 class="text-center">Encryption Demo</h4>
+              <div class="form-group">
+                <label>Test Candidate ID:</label>
+                <input type="number" id="testCandidateId" class="form-control" value="1">
+              </div>
+              <button onclick="runDemo()" class="btn btn-info">Encrypt Test Vote</button>
+              <div id="demoResult" style="display:none; margin-top:15px;">
+                <p><strong>Encrypted Data:</strong></p>
+                <div class="encrypted-data" id="encryptedOutput"></div>
+                <button onclick="decryptData()" class="btn btn-sm btn-secondary mt-2">Decrypt Sample</button>
+                <div id="decryptedOutput" class="mt-2" style="display:none;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- jQuery and Bootstrap JS -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/web3.min.js"></script>
+    <script src="js/truffle-contract.js"></script>
+    <script src="js/app.js"></script>
+
+    <!-- Encryption Logic -->
+    <script>
+      const SECRET_KEY = "election-secure-key-2023";
+
+      function encryptVote(candidateId, voterAddress) {
+        const voteData = {
+          candidateId: candidateId,
+          voter: voterAddress,
+          timestamp: Date.now(),
+          system: "Blockchain Voting System"
+        };
+        return CryptoJS.AES.encrypt(
+          JSON.stringify(voteData),
+          SECRET_KEY
+        ).toString();
+      }
+
+      function runDemo() {
+        const testId = document.getElementById('testCandidateId').value;
+        const encrypted = encryptVote(testId, "0xTESTVOTER123");
+        document.getElementById('encryptedOutput').textContent = encrypted;
+        document.getElementById('demoResult').style.display = 'block';
+        document.getElementById('decryptedOutput').style.display = 'none';
+      }
+
+      function decryptData() {
+        const encrypted = document.getElementById('encryptedOutput').textContent;
+        try {
+          const bytes = CryptoJS.AES.decrypt(encrypted, SECRET_KEY);
+          const decrypted = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+          document.getElementById('decryptedOutput').innerHTML = `
+            <strong>Decrypted Data:</strong>
+            <pre>${JSON.stringify(decrypted, null, 2)}</pre>
+          `;
+          document.getElementById('decryptedOutput').style.display = 'block';
+        } catch (e) {
+          alert("Decryption failed - invalid key or data");
+        }
+      }
+
+      // Update title dynamically based on vote status
+      async function updateTitleBasedOnVoteStatus() {
+        const hasVoted = await App.contracts.Election.deployed()
+          .then(instance => instance.voters(App.account));
+        
+        if (hasVoted) {
+          document.title = "Election Results";
+          document.getElementById("mainTitle").innerText = "Election Results";
+        } else {
+          document.title = "CR Election";
+          document.getElementById("mainTitle").innerText = "CR Election";
+        }
+
+        // Fade-in effect
+        document.getElementById("content").style.display = "block";
+        document.getElementById("content").classList.add("show");
+        document.getElementById("loader").style.display = "none";
+      }
+
+      // Hook into App.init once it's ready
+      window.addEventListener("load", () => {
+        setTimeout(() => {
+          updateTitleBasedOnVoteStatus();
+        }, 1000); // Delay slightly to let Web3 load
+      });
+    </script>
+  </body>
+</html>
